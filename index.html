@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Countercurrent Multiplier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: loop-of-Henle diagram (rows = medullary depth) on the left; controls, current step and readouts on the right. Stacks on phones. */
+:root{
+  --bg:#F2F5F6; --surface:#FFFFFF; --ink:#14222B; --muted:#5A6B75; --line:#D3DCE0;
+  --tube:#7C98A6; --salt:#C9821A; --water:#2C7DA0; --urea:#8A4A9C; --good:#1C8768; --warnbg:#FBF0DC;
+  --f-display:"Literata",Georgia,serif; --f-body:"Public Sans",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E161B; --surface:#152028; --ink:#E3EBEE; --muted:#93A5AE; --line:#293841;
+  --tube:#6F8E9D; --salt:#E9AD4E; --water:#62B6D9; --urea:#C38DD3; --good:#4CC49F; --warnbg:#33290F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E161B; --surface:#152028; --ink:#E3EBEE; --muted:#93A5AE; --line:#293841;
+  --tube:#6F8E9D; --salt:#E9AD4E; --water:#62B6D9; --urea:#C38DD3; --good:#4CC49F; --warnbg:#33290F; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 48px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--f-display);font-weight:650;font-size:clamp(1.6rem,3vw,2.2rem);line-height:1.15;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.side{display:flex;flex-direction:column;gap:16px}
+.label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 8px}
+svg text{font-family:var(--f-body)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 13px;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 11px;cursor:pointer}
+.presets button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--water);outline-offset:2px}
+.phases{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ph{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:.78rem;color:var(--muted);line-height:1.3}
+.ph b{display:block;color:var(--ink);font-size:.82rem}
+.ph.on{border-color:var(--ink);background:var(--bg)}
+.ph.on b{color:var(--ink)}
+.explain{font-size:.92rem;margin:0;min-height:6.2em}
+.ctl{display:flex;flex-direction:column;gap:4px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-size:.88rem;font-weight:500}
+.ctl output{font-family:var(--f-mono);font-size:.86rem;font-variant-numeric:tabular-nums}
+.ctl .hint{font-size:.76rem;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.toggle{display:flex;gap:10px;align-items:flex-start;font-size:.88rem}
+.toggle input{margin-top:4px}
+.toggle small{display:block;color:var(--muted);font-size:.76rem}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--surface);padding:12px 14px}
+.stat .k{font-size:.76rem;color:var(--muted)}
+.stat .v{font-family:var(--f-mono);font-size:1.4rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat .u{font-size:.76rem;color:var(--muted);margin-left:3px;font-family:var(--f-body)}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.key div{font-size:.88rem}
+.key b{display:block;font-family:var(--f-display);font-size:1rem;margin-bottom:2px}
+.foot{font-size:.82rem;color:var(--muted);max-width:85ch;margin:0}
+.scale{display:flex;align-items:center;gap:8px;font-size:.74rem;color:var(--muted);font-family:var(--f-mono)}
+.scale i{flex:1;height:10px;border-radius:3px;display:block}
+</style>
+</head>
+<body style="margin:0">
+
+<div class="wrap">
+  <header>
+    <h1>Countercurrent Multiplier</h1>
+    <p class="sub">The thick ascending limb pumps NaCl out, but water can’t follow. The descending limb lets water out, but not salt. Flow runs in opposite directions in the two limbs. Step through the cycle to watch a 200 mOsm “single effect” multiply into a 300 → 1200 mOsm medullary gradient.</p>
+  </header>
+
+  <div class="grid">
+    <div class="panel">
+      <p class="label">Loop of Henle and collecting duct, by medullary depth (mOsm/kg)</p>
+      <div style="overflow-x:auto"><svg id="dia" viewBox="0 0 600 560" width="100%" role="img" aria-label="Loop of Henle countercurrent diagram"></svg></div>
+      <div class="scale"><span>100</span><i id="scaleBar"></i><span>1200+</span></div>
+    </div>
+
+    <div class="side">
+      <div class="panel side">
+        <div>
+          <p class="label">Run the cycle</p>
+          <div class="btns">
+            <button class="btn primary" id="stepBtn">Next step</button>
+            <button class="btn" id="cycleBtn">Full cycle</button>
+            <button class="btn" id="runBtn">Auto-run</button>
+            <button class="btn" id="ssBtn">Jump to steady state</button>
+            <button class="btn" id="resetBtn">Reset</button>
+          </div>
+        </div>
+        <div class="phases">
+          <div class="ph" id="ph0"><b>1 · Pump</b><span style="color:var(--salt);font-weight:600">← NaCl</span> out of TAL</div>
+          <div class="ph" id="ph1"><b>2 · Equilibrate</b><span style="color:var(--water);font-weight:600">H₂O →</span> out of descending limb</div>
+          <div class="ph" id="ph2"><b>3 · Flow</b>Fluid advances one segment</div>
+        </div>
+        <p class="explain" id="explain"></p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="k">Cycles completed</div><div class="v" id="sCyc"></div></div>
+        <div class="stat"><div class="k">Interstitium at tip</div><div class="v" id="sTip"></div></div>
+        <div class="stat"><div class="k">Fluid leaving TAL</div><div class="v" id="sTal"></div></div>
+        <div class="stat"><div class="k">Final urine</div><div class="v" id="sUrine"></div></div>
+      </div>
+
+      <div class="panel side">
+        <div>
+          <p class="label">Scenarios</p>
+          <div class="presets" id="presets"></div>
+        </div>
+        <div class="ctl"><div class="row"><label for="g">TAL pump strength (single effect)</label><output id="gO"></output></div>
+          <input type="range" id="g" min="0" max="200" step="10"><span class="hint">Max horizontal gradient the Na⁺-K⁺-2Cl⁻ cotransporter can hold between ascending fluid and interstitium. Loop diuretics drive it toward 0.</span></div>
+        <label class="toggle"><input type="checkbox" id="adh"><span>ADH (vasopressin) present<small>Collecting duct becomes water-permeable (aquaporin-2) and inner medullary duct becomes urea-permeable, so urea recycles into the inner medulla.</small></span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="label">What to notice</p>
+    <div class="key">
+      <div><b>Small effect, multiplied</b>At any one level the pump only holds about 200 mOsm between ascending fluid and interstitium. Because flow keeps carrying concentrated fluid down and around the bend, that 200 is stacked level after level.</div>
+      <div><b>Opposite permeabilities</b>The descending limb loses water and gets more concentrated on the way down. The ascending limb loses salt without water and gets more dilute on the way up, leaving the TAL at about 100 mOsm.</div>
+      <div><b>Urea finishes the job</b>NaCl alone (switch ADH off) builds roughly 850 at the tip here. Urea recycling under ADH adds the rest of the inner medullary gradient toward about 1200.</div>
+      <div><b>ADH decides the urine</b>The loop builds the gradient. ADH decides whether the collecting duct uses it. Without ADH, dilute TAL fluid passes through unchanged and urine is about 50–100 mOsm.</div>
+    </div>
+  </div>
+
+  <p class="foot">Teaching model: 8 medullary segments. Each cycle the TAL pumps NaCl until ascending fluid is the single-effect gradient below the interstitium. Descending fluid then loses water until it matches the interstitium; most of that water is carried off by the vasa recta. Fluid then moves one segment. Urea is modeled as a separate inner medullary component that builds with ADH and washes out without it. Numbers are approximate and meant to show the mechanism, not to predict real values.</p>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const N=8, Vi=2; const VR=0.75, UMAX=450;
+let G=200, ADH=true;
+let S, phase=0, cycles=0, timer=null, active="Normal";
+
+function init(){
+  S={Dv:Array(N).fill(1),Ds:Array(N).fill(300),Av:Array(N).fill(1),As:Array(N).fill(300),
+     Na:Array(N).fill(300),U:Array(N).fill(0),Cv:Array(N).fill(1),Cs:Array(N).fill(300),
+     talOut:300,urine:300,urineV:1,arrows:null};
+  phase=0;cycles=0;
+}
+const It=i=>S.Na[i]+S.U[i];
+const Uta=i=>{const s=(i-(N/2-1))/(N/2);return s>0?UMAX*(G/200)*s:0};
+
+function pump(){
+  const arr=[];
+  for(let i=0;i<N;i++){let moved=0;
+    for(let k=0;k<4;k++){const t=Math.max(0,It(i)-G);const x=S.As[i]-t*S.Av[i];if(x>0.01){S.As[i]-=x;S.Na[i]+=x/Vi;moved+=x}}
+    arr.push(moved);}
+  S.arrows={type:"pump",v:arr};
+}
+function equil(){
+  const dArr=[],cArr=[];
+  for(let i=0;i<N;i++){
+    // urea builds in inner medulla with ADH, washes out without it
+    S.U[i]+=0.3*((ADH?Uta(i):0)-S.U[i]);
+    const target=It(i);let dw=0;
+    if(S.Ds[i]/S.Dv[i]<target){let lo=0,hi=S.Dv[i]*0.999;
+      for(let k=0;k<40;k++){const m=(lo+hi)/2;const f=S.Ds[i]/(S.Dv[i]-m)-target*Vi/(Vi+VR*m);if(f<0)lo=m;else hi=m}
+      dw=(lo+hi)/2;const sc=Vi/(Vi+VR*dw);S.Na[i]*=sc;S.U[i]*=sc;S.Dv[i]-=dw;
+    }
+    dArr.push(dw);
+    let cw=0;
+    if(ADH){const co=S.Cs[i]/S.Cv[i];if(co<It(i)){const nv=S.Cs[i]/It(i);cw=S.Cv[i]-nv;S.Cv[i]=nv}}
+    else {S.Cs[i]*=0.94}
+    cArr.push(cw);
+  }
+  S.arrows={type:"equil",d:dArr,c:cArr};
+}
+function flow(){
+  const bs=S.Ds[N-1],bv=S.Dv[N-1];
+  const ts=S.As[0],tv=S.Av[0];S.talOut=ts/tv;
+  const us=S.Cs[N-1],uv=S.Cv[N-1];S.urine=us/uv;S.urineV=uv;
+  for(let i=N-1;i>0;i--){S.Ds[i]=S.Ds[i-1];S.Dv[i]=S.Dv[i-1];S.Cs[i]=S.Cs[i-1];S.Cv[i]=S.Cv[i-1]}
+  S.Ds[0]=300;S.Dv[0]=1;S.Cs[0]=ts;S.Cv[0]=tv;
+  for(let i=0;i<N-1;i++){S.As[i]=S.As[i+1];S.Av[i]=S.Av[i+1]}
+  S.As[N-1]=bs;S.Av[N-1]=bv;
+  S.arrows={type:"flow"};
+}
+function doStep(){[pump,equil,flow][phase]();phase=(phase+1)%3;if(phase===0)cycles++;}
+
+// ---------- rendering ----------
+const isDark=()=>{const t=document.documentElement.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches};
+function osmFill(v){const t=Math.max(0,Math.min(1,(v-100)/1100));
+  return isDark()? `hsl(${205-30*t} ${45+20*t}% ${16+40*t}%)` : `hsl(${200-25*t} ${55+15*t}% ${95-58*t}%)`}
+function osmText(v){const t=Math.max(0,Math.min(1,(v-100)/1100));return isDark()?(t>0.75?"#0E161B":"#E3EBEE"):(t>0.55?"#FFFFFF":"#14222B")}
+
+const X={d:178,a:348,c:512},CW=74,top=78,RH=50;
+function arrowPath(x1,y1,x2,y2,col,w){const a=Math.atan2(y2-y1,x2-x1),h=7;
+  return `<line x1="${x1}" y1="${y1}" x2="${x2-Math.cos(a)*h}" y2="${y2-Math.sin(a)*h}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/><polygon points="${x2},${y2} ${x2-h*Math.cos(a-0.5)},${y2-h*Math.sin(a-0.5)} ${x2-h*Math.cos(a+0.5)},${y2-h*Math.sin(a+0.5)}" fill="${col}"/>`}
+
+function draw(){
+  let g="";
+  // cortex band
+  g+=`<rect x="0" y="22" width="600" height="${top-22}" fill="${osmFill(300)}"/><text x="10" y="40" font-size="11" font-weight="600" letter-spacing=".08em" fill="var(--muted)">CORTEX · 300</text>`;
+  g+=`<text x="${X.d}" y="${top-8}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">↓ from PCT · 300</text>`;
+  g+=`<text x="${X.a}" y="${top-8}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">→ to DCT · ${Math.round(S.talOut)}</text>`;
+  g+=`<text x="${X.c}" y="${top-8}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">↓ from DCT</text>`;
+  for(let i=0;i<N;i++){const y=top+i*RH,v=It(i);
+    g+=`<rect x="0" y="${y}" width="600" height="${RH}" fill="${osmFill(v)}"/>`;
+    g+=`<text x="${(X.d+X.a)/2}" y="${y+RH/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="600" fill="${osmText(v)}">${Math.round(v)}</text>`;
+    g+=`<text x="${(X.a+X.c)/2+4}" y="${y+RH/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="${osmText(v)}" opacity=".8">${Math.round(v)}</text>`;
+    if(S.U[i]>8)g+=`<text x="${(X.d+X.a)/2}" y="${y+RH/2+19}" text-anchor="middle" font-size="9.5" fill="${osmText(v)}" opacity=".85">urea ${Math.round(S.U[i])}</text>`;
+    g+=`<line x1="0" x2="600" y1="${y}" y2="${y}" stroke="var(--surface)" stroke-opacity=".5"/>`;
+  }
+  const bot=top+N*RH;
+  g+=`<text x="10" y="${top+16}" font-size="9.5" font-weight="600" letter-spacing=".05em" fill="${osmText(It(0))}" opacity=".8">OUTER MEDULLA</text>`;
+  g+=`<text x="10" y="${top+(N/2)*RH+16}" font-size="9.5" font-weight="600" letter-spacing=".05em" fill="${osmText(It(N/2))}" opacity=".8">INNER MEDULLA</text>`;
+  // tubes
+  const tube=(x,vals,label)=>{let s="";for(let i=0;i<N;i++){const y=top+i*RH,v=vals[i];
+      s+=`<rect x="${x-CW/2}" y="${y+4}" width="${CW}" height="${RH-8}" rx="6" fill="${osmFill(v)}" stroke="var(--tube)" stroke-width="2"/>`;
+      s+=`<text x="${x}" y="${y+RH/2+5}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" font-weight="600" fill="${osmText(v)}">${Math.round(v)}</text>`}
+    s+=`<text x="${x}" y="${bot+48}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink)">${label[0]}</text><text x="${x}" y="${bot+62}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${label[1]}</text>`;return s};
+  const D=S.Ds.map((s,i)=>s/S.Dv[i]),A=S.As.map((s,i)=>s/S.Av[i]),C=S.Cs.map((s,i)=>s/S.Cv[i]);
+  // U-turn
+  g+=`<path d="M ${X.d-CW/2+8} ${bot-4} Q ${X.d-CW/2+8} ${bot+30} ${(X.d+X.a)/2} ${bot+30} Q ${X.a+CW/2-8} ${bot+30} ${X.a+CW/2-8} ${bot-4}" fill="none" stroke="var(--tube)" stroke-width="2"/>`;
+  g+=`<path d="M ${X.d+CW/2-8} ${bot-4} Q ${X.d+CW/2-8} ${bot+12} ${(X.d+X.a)/2} ${bot+12} Q ${X.a-CW/2+8} ${bot+12} ${X.a-CW/2+8} ${bot-4}" fill="none" stroke="var(--tube)" stroke-width="2"/>`;
+  g+=tube(X.d,D,["Descending limb","H₂O out · no NaCl"]);
+  g+=tube(X.a,A,["Ascending limb","NaCl out · no H₂O"]);
+  g+=tube(X.c,C,["Collecting duct",ADH?"ADH: H₂O out":"No ADH: impermeable"]);
+  g+=`<text x="${X.c}" y="${bot+30}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">↓ urine · ${Math.round(S.urine)}</text>`;
+  // thick segment marker on ascending (outer medulla)
+  g+=`<rect x="${X.a+CW/2+3}" y="${top+4}" width="5" height="${(N/2)*RH-8}" rx="2" fill="var(--salt)"/><text x="${X.a+CW/2+12}" y="${top+16}" font-size="9.5" font-weight="700" fill="var(--salt)" transform="rotate(90 ${X.a+CW/2+12} ${top+16})">THICK (NKCC2)</text>`;
+  // direction chevrons
+  g+=arrowPath(X.d-CW/2-14,top+10,X.d-CW/2-14,bot-10,"var(--muted)",1.5);
+  g+=arrowPath(X.a-CW/2-12,bot-10,X.a-CW/2-12,top+10,"var(--muted)",1.5);
+  // phase arrows
+  const ar=S.arrows;
+  if(ar){
+    for(let i=0;i<N;i++){const yc=top+i*RH+RH/2;
+      if(ar.type==="pump"&&ar.v[i]>1){const w=Math.min(5,1.5+ar.v[i]/40);g+=arrowPath(X.a-CW/2-2,yc-16,X.a-CW/2-40,yc-16,"var(--salt)",w)}
+      if(ar.type==="equil"){
+        if(ar.d[i]>0.002){const w=Math.min(5,1.5+ar.d[i]*40);g+=arrowPath(X.d+CW/2+2,yc-16,X.d+CW/2+40,yc-16,"var(--water)",w)}
+        if(ar.c[i]>0.002){const w=Math.min(5,1.5+ar.c[i]*40);g+=arrowPath(X.c-CW/2-2,yc-16,X.c-CW/2-34,yc-16,"var(--water)",w)}
+      }
+    }
+    if(ar.type==="flow"){for(let i=0;i<N;i+=2){const y=top+i*RH+RH/2;
+      g+=arrowPath(X.d+CW/2+8,y-12,X.d+CW/2+8,y+16,"var(--ink)",2.5);g+=arrowPath(X.a+CW/2+16,y+16,X.a+CW/2+16,y-12,"var(--ink)",2.5);g+=arrowPath(X.c+CW/2+8,y-12,X.c+CW/2+8,y+16,"var(--ink)",2.5)}}
+  }
+  $("dia").innerHTML=g;
+  // side
+  [0,1,2].forEach(k=>$("ph"+k).classList.toggle("on",k===phase));
+  const done=(phase+2)%3; // last completed
+  const EX=[
+    `<b>Next: Pump.</b> The thick ascending limb actively moves NaCl into the interstitium until ascending fluid is ${G} mOsm below it. Water cannot follow because this segment is water-impermeable.`,
+    `<b>Next: Equilibrate.</b> The descending limb is permeable to water but not NaCl. Water moves out into the saltier interstitium (and is carried away by the vasa recta) until descending fluid matches the interstitium.${ADH?" With ADH, the collecting duct also loses water to the interstitium.":""}`,
+    `<b>Next: Flow.</b> Fluid moves one segment. New 300 mOsm fluid enters from the proximal tubule, the concentrated fluid at the bend turns into the ascending limb, and dilute fluid exits the TAL toward the distal tubule. The next pump step starts from a higher baseline.`];
+  $("explain").innerHTML=EX[phase];
+  $("sCyc").textContent=cycles;
+  $("sTip").innerHTML=Math.round(It(N-1))+'<span class="u">mOsm</span>';
+  $("sTal").innerHTML=Math.round(S.talOut)+'<span class="u">mOsm</span>';
+  $("sUrine").innerHTML=Math.round(S.urine)+'<span class="u">mOsm</span>';
+  $("gO").textContent=G+" mOsm";
+  $("adh").checked=ADH;$("g").value=G;
+  $("presets").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.textContent===active));
+}
+$("scaleBar").style.background=`linear-gradient(90deg,${[100,375,650,925,1200].map(osmFill).join(",")})`;
+
+// presets
+const PRE=[["Normal",200,true],["Water loading (no ADH)",200,false],["Loop diuretic",0,true],["Weak pump",100,true]];
+PRE.forEach(([n,g,a])=>{const b=document.createElement("button");b.textContent=n;b.onclick=()=>{G=g;ADH=a;active=n;draw()};$("presets").appendChild(b)});
+
+$("g").addEventListener("input",e=>{G=+e.target.value;active=null;draw()});
+$("adh").addEventListener("change",e=>{ADH=e.target.checked;active=null;draw()});
+$("stepBtn").onclick=()=>{stop();doStep();draw()};
+$("cycleBtn").onclick=()=>{stop();do{doStep()}while(phase!==0);draw()};
+$("ssBtn").onclick=()=>{stop();for(let k=0;k<330;k++)doStep();while(phase!==0)doStep();S.arrows=null;draw()};
+$("resetBtn").onclick=()=>{stop();init();draw()};
+function stop(){if(timer){clearInterval(timer);timer=null;$("runBtn").textContent="Auto-run"}}
+$("runBtn").onclick=()=>{if(timer){stop();return}
+  $("runBtn").textContent="Pause";timer=setInterval(()=>{doStep();draw()},matchMedia("(prefers-reduced-motion: reduce)").matches?700:260)};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{draw();$("scaleBar").style.background=`linear-gradient(90deg,${[100,375,650,925,1200].map(osmFill).join(",")})`});
+
+init();
+// open in a partly built state so the first view shows the gradient forming
+for(let k=0;k<12*3;k++)doStep();
+S.arrows=null;
+draw();
+})();
+</script>
+
+</body>
+</html>
